@@ -42,6 +42,7 @@ from RobotLibrary._version import __version__
 from pathlib import Path
 from robot.api import logger, TestSuite
 from robot.api.deco import keyword, library
+from robot.running import EXECUTION_CONTEXTS, UserKeyword
 from robot.running.model import Keyword as RunningKeyword
 
 
@@ -181,7 +182,7 @@ class RobotLibrary(RobotLibraryListener):
         | Log John              ${CURDIR}/tasks.robot   Log name     John
         | Log Jane              ${CURDIR}/tasks.robot   Log name     Jane
         """
-        return f"ERROR: Injection failed for test '{test_name}'"
+        self._execute_at_runtime(suite_path, test_name, variables)
 
     @keyword("Run Robot Task")
     def run_robot_task(self, suite_path: str, task_name: str, **variables: str) -> str:
@@ -210,7 +211,119 @@ class RobotLibrary(RobotLibraryListener):
         | Process John          ${CURDIR}/tasks.robot   Log name     John
         | Process Jane          ${CURDIR}/tasks.robot   Log name     Jane
         """
-        return f"ERROR: Injection failed for task '{task_name}'"
+        self._execute_at_runtime(suite_path, task_name, variables)
+
+    # -- Runtime execution (fallback) -----------------------------------------
+
+    def _execute_at_runtime(
+        self, suite_path: str, test_name: str, variables: dict[str, str]
+    ):
+        """Execute target test/task steps at runtime.
+
+        This method is the fallback that runs when the Listener v3
+        ``start_test`` hook did not inject steps — for example when
+        ``Run Robot Test`` / ``Run Robot Task`` is called from inside a
+        wrapper keyword used as a ``Test Template``.
+
+        A temporary ``UserKeyword`` is created from the target test's body
+        (including ``[Setup]`` and ``[Teardown]``), registered in the
+        current suite's resource table, executed via
+        ``BuiltIn.Run Keyword``, and cleaned up afterwards.  This ensures
+        that all step types (FOR, IF, WHILE, TRY, …) are fully supported
+        and properly logged.
+
+        Args:
+            suite_path: Path to the ``.robot`` file.
+            test_name: Name of the test case or task to run.
+            variables: Variable overrides as ``NAME: value`` pairs.
+        """
+        from robot.libraries.BuiltIn import BuiltIn
+
+        builtin = BuiltIn()
+
+        # Resolve RF variables in the path / name arguments
+        suite_path = builtin.replace_variables(str(suite_path))
+        test_name = builtin.replace_variables(str(test_name))
+
+        logger.info(f"Executing at runtime: {suite_path} / {test_name}")
+
+        # Load target suite and locate the test/task
+        suite = self._load_suite(suite_path)
+        target_test = self._find_test(suite, test_name)
+
+        if not target_test:
+            raise RuntimeError(f"Test or task '{test_name}' not found in {suite_path}")
+
+        # -- Import resource files from the target suite --
+        suite_dir = Path(str(suite.source)).parent if suite.source else None
+        if hasattr(suite, "resource") and hasattr(suite.resource, "imports"):
+            for imp in suite.resource.imports:
+                if imp.type == "RESOURCE":
+                    imp_path = imp.name
+                    if suite_dir and not Path(imp_path).is_absolute():
+                        imp_path = str(suite_dir / imp_path)
+                    builtin.import_resource(imp_path)
+
+        # -- Inject variables from the target suite's variable table --
+        if hasattr(suite, "resource") and hasattr(suite.resource, "variables"):
+            for var in suite.resource.variables:
+                if not (hasattr(var, "name") and hasattr(var, "value")):
+                    continue
+                if var.name.startswith(("@{", "&{")):
+                    builtin.set_test_variable(var.name, *var.value)
+                elif isinstance(var.value, (list, tuple)) and var.value:
+                    builtin.set_test_variable(var.name, var.value[0])
+                else:
+                    builtin.set_test_variable(var.name, var.value)
+
+        # -- Apply caller-provided overrides --
+        if variables:
+            logger.info(f"Applying variable overrides: {list(variables.keys())}")
+            for var_name, var_value in variables.items():
+                if not var_name.startswith("${"):
+                    var_name = f"${{{var_name}}}"
+                builtin.set_test_variable(var_name, var_value)
+
+        # -- Build a temporary UserKeyword containing the target steps --
+        temp_kw = UserKeyword(name=test_name)
+
+        # Setup
+        if target_test.setup and target_test.setup.name:
+            temp_kw.body.create_keyword(
+                name=target_test.setup.name,
+                args=list(target_test.setup.args),
+            )
+
+        # Body (deep-copied so the cached suite is not mutated)
+        for step in target_test.body:
+            temp_kw.body.append(step.deepcopy())
+
+        # Teardown
+        if target_test.teardown and target_test.teardown.name:
+            temp_kw.body.create_keyword(
+                name=target_test.teardown.name,
+                args=list(target_test.teardown.args),
+            )
+
+        # Register the temporary keyword in the running suite's resource file,
+        # invalidate the keyword finder cache so it gets discovered, execute it,
+        # and clean up afterwards.
+        ctx = EXECUTION_CONTEXTS.current
+        resource_file = ctx.namespace._kw_store.suite_file
+        resource_file.keywords.append(temp_kw)
+        resource_file.keyword_finder.invalidate_cache()
+        try:
+            builtin.run_keyword(test_name)
+        finally:
+            try:
+                resource_file.keywords.remove(temp_kw)
+                resource_file.keyword_finder.invalidate_cache()
+            except (ValueError, AttributeError):
+                pass
+
+        logger.info(
+            f"Successfully executed {len(target_test.body)} step(s) from '{test_name}'"
+        )
 
     # -- Suite loading and test lookup ----------------------------------------
 
