@@ -1,0 +1,20 @@
+# Devenv
+.devcontainer.json
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+# Robot Framework
+log.html
+output.xml
+report.html
+
+# Python
+__pycache__
+dist/
