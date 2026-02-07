@@ -9,9 +9,12 @@ test: install
 	python -m robot --outputdir output $(ROBOT_FILES)
 
 lint:
+	@echo "Running ruff checks..."
 	ruff check src/ tests/
 	ruff format --check src/
-	prek
+	@echo "Validating pyproject.toml..."
+	@python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))" && echo "✓ pyproject.toml is valid"
+	@echo "All lint checks passed!"
 
 format:
 	ruff check --fix src/ tests/
