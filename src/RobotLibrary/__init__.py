@@ -254,7 +254,7 @@ class RobotLibrary(RobotLibraryListener):
         if not target_test:
             raise RuntimeError(f"Test or task '{test_name}' not found in {suite_path}")
 
-        # -- Import resource files from the target suite --
+        # -- Import resource files and libraries from the target suite --
         suite_dir = Path(str(suite.source)).parent if suite.source else None
         if hasattr(suite, "resource") and hasattr(suite.resource, "imports"):
             for imp in suite.resource.imports:
@@ -263,6 +263,9 @@ class RobotLibrary(RobotLibraryListener):
                     if suite_dir and not Path(imp_path).is_absolute():
                         imp_path = str(suite_dir / imp_path)
                     builtin.import_resource(imp_path)
+                elif imp.type == "LIBRARY":
+                    lib_args = list(imp.args) if imp.args else []
+                    builtin.import_library(imp.name, *lib_args)
 
         # -- Inject variables from the target suite's variable table --
         if hasattr(suite, "resource") and hasattr(suite.resource, "variables"):

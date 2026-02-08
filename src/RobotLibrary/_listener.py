@@ -162,8 +162,9 @@ class RobotLibraryListener:
                     self._create_set_variable_keyword(var_name, var_value)
                 )
 
-        # Build resource import steps so that keywords from the target
-        # suite's resource files are available in the calling test's scope.
+        # Build resource and library import steps so that keywords from the
+        # target suite's resource files and libraries are available in the
+        # calling test's scope.
         import_steps = []
         if hasattr(suite, "resource") and hasattr(suite.resource, "imports"):
             from pathlib import Path
@@ -180,6 +181,16 @@ class RobotLibraryListener:
                         RunningKeyword(
                             name="BuiltIn.Import Resource",
                             args=[imp_path],
+                        )
+                    )
+                elif imp.type == "LIBRARY":
+                    lib_args = [imp.name]
+                    if imp.args:
+                        lib_args.extend(imp.args)
+                    import_steps.append(
+                        RunningKeyword(
+                            name="BuiltIn.Import Library",
+                            args=lib_args,
                         )
                     )
 
