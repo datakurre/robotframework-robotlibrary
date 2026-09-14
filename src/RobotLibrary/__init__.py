@@ -270,8 +270,9 @@ class RobotLibrary(RobotLibraryListener):
         # -- Inject variables from the target suite's variable table --
         if hasattr(suite, "resource") and hasattr(suite.resource, "variables"):
             for var in suite.resource.variables:
+                # Defensive: RF's Variable model always sets both attributes.
                 if not (hasattr(var, "name") and hasattr(var, "value")):
-                    continue
+                    continue  # pragma: no cover
                 if var.name.startswith(("@{", "&{")):
                     builtin.set_test_variable(var.name, *var.value)
                 elif isinstance(var.value, (list, tuple)) and var.value:
@@ -321,7 +322,9 @@ class RobotLibrary(RobotLibraryListener):
             try:
                 resource_file.keywords.remove(temp_kw)
                 resource_file.keyword_finder.invalidate_cache()
-            except (ValueError, AttributeError):
+            except (ValueError, AttributeError):  # pragma: no cover
+                # Defensive: temp_kw is appended and removed within this same
+                # call, so removal should never legitimately fail.
                 pass
 
         logger.info(
