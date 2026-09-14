@@ -1,12 +1,18 @@
-.PHONY: install test lint format build check libdoc clean
+.PHONY: install test coverage lint format build check libdoc clean
 
 ROBOT_FILES := $(wildcard tests/test_*.robot)
 
 install:
-	pip install -e .
+	pip install -e ".[test]"
 
 test: install
 	python -m robot --outputdir output $(ROBOT_FILES)
+
+coverage: install
+	coverage erase
+	coverage run -m robot --outputdir output $(ROBOT_FILES)
+	coverage combine
+	coverage report -m
 
 lint:
 	@echo "Running ruff checks..."
@@ -32,6 +38,6 @@ libdoc: install
 	python -m robot.libdoc RobotLibrary RobotLibrary.html
 
 clean:
-	rm -rf output/ dist/ build/ src/*.egg-info
-	rm -f RobotLibrary.html
+	rm -rf output/ dist/ build/ src/*.egg-info htmlcov/
+	rm -f RobotLibrary.html .coverage .coverage.*
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

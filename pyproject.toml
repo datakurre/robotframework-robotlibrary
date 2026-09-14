@@ -36,6 +36,11 @@ dependencies = [
     "robotframework>=5.0",
 ]
 
+[project.optional-dependencies]
+test = [
+    "coverage",
+]
+
 [project.urls]
 Homepage = "https://github.com/datakurre/robotframework-robotlibrary"
 Repository = "https://github.com/datakurre/robotframework-robotlibrary"
@@ -54,3 +59,12 @@ include = [
     "README.md",
     "LICENSE",
 ]
+
+[tool.coverage.run]
+source = ["src/RobotLibrary"]
+parallel = true
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100

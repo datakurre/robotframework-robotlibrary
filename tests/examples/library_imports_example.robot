@@ -1,8 +1,10 @@
 *** Settings ***
-Documentation    Example suite that imports a Python library.
-...              Demonstrates that RobotLibrary auto-imports Library statements
-...              so that keywords from the library are available during injection.
+Documentation    Example suite that imports Python libraries, one of them with
+...              an import argument. Demonstrates that RobotLibrary auto-imports
+...              Library statements (args included) so that keywords from the
+...              library are available during injection.
 Library          random
+Library          Screenshot    .
 
 *** Test Cases ***
 Test Randint

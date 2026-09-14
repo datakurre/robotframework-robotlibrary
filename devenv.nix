@@ -8,7 +8,8 @@ let
       venv = {
         enable = true;
         requirements = ''
-          -e .
+          -e .[test]
+          robotframework==7.5
           build
           twine
         '';

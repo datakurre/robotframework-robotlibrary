@@ -7,6 +7,7 @@ Documentation    Example suite demonstrating scalar, list, and dict variables.
 &{CONFIG}        host=localhost    port=8080
 ${GREETING}      Hello
 ${TARGET}        World
+${EMPTY_SCALAR}
 
 *** Test Cases ***
 Test With List Variable

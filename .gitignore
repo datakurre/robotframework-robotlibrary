@@ -18,3 +18,8 @@ report.html
 # Python
 __pycache__
 dist/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
