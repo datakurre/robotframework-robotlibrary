@@ -38,7 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "coverage",
+    "coverage[toml]",
 ]
 
 [project.urls]
@@ -59,6 +59,11 @@ include = [
     "README.md",
     "LICENSE",
 ]
+
+[tool.ruff.lint]
+# Ruff's own documented default when unconfigured; pinned explicitly so a
+# future ruff release adding new default-on rules can't break CI again.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.coverage.run]
 source = ["src/RobotLibrary"]
